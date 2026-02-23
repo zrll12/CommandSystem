@@ -1,5 +1,7 @@
 plugins {
-    kotlin("jvm") version "2.3.0"
+    kotlin("jvm") version "2.3.10"
+    `java-library`
+    `maven-publish`
 }
 
 group = "cc.vastsea.zrll"
@@ -14,9 +16,20 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(16)
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            groupId = project.group.toString()
+            artifactId = project.name
+            version = project.version.toString()
+        }
+    }
 }
