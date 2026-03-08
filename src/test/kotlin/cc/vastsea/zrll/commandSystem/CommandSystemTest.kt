@@ -1,4 +1,4 @@
-package cc.vastsea.zrll
+package cc.vastsea.zrll.commandSystem
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
