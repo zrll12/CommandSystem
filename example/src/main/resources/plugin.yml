@@ -1,0 +1,10 @@
+name: TestCommandParser
+version: '1.0-SNAPSHOT'
+main: cc.vastsea.zrll.testCommandParser.TestCommandParser
+api-version: '1.21'
+commands:
+  testcommandparser:
+    description: A test command for the TestCommandParser plugin.
+    usage: /<command>
+    permission: testcommandparser.use
+    aliases: [tcp]
