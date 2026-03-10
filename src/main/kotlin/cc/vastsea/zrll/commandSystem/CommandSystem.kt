@@ -10,6 +10,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder.literal
 import com.mojang.brigadier.builder.RequiredArgumentBuilder
 import com.mojang.brigadier.builder.RequiredArgumentBuilder.argument
 import org.bukkit.command.CommandSender
+import org.bukkit.permissions.Permission
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -64,6 +65,17 @@ class CommandSystem {
             dispatcher.register(rootLiteral)
             runnerSystem.addDispatcher(root.name, dispatcher)
         }
+    }
+
+    fun permissions(): List<Permission> {
+        return roots.values
+            .asSequence()
+            .flatMap { it.endpoints }
+            .map { it.permission }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { Permission(it) }
+            .toList()
     }
 
     private fun registerAnnotatedMethod(instance: Any, method: Method, annotation: CommandHandler) {

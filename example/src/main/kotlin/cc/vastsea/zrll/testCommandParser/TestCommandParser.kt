@@ -4,6 +4,7 @@ import cc.vastsea.zrll.commandSystem.CommandRunnerSystem
 import cc.vastsea.zrll.commandSystem.CommandSystem
 import cc.vastsea.zrll.testCommandParser.commands.TestCommand
 import com.sun.beans.introspect.PropertyInfo
+import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 
 class TestCommandParser : JavaPlugin() {
@@ -13,8 +14,8 @@ class TestCommandParser : JavaPlugin() {
         val commandSystem = CommandSystem()
         commandSystem.register(TestCommand())
         /*
-        * You can use the code below to register command,
-        * in that way, you don't need to add @CommandHandler annotation:
+        * You can use the code below to register command as well,
+        * but in that way, you don't need to add @CommandHandler annotation to your handler:
         *
         * commandSystem.command("testcommandparser") {
         *     literal("get") {
@@ -28,6 +29,9 @@ class TestCommandParser : JavaPlugin() {
         */
 
         commandSystem.finalize(commandRunnerSystem)
+        commandSystem.permissions().forEach {
+            Bukkit.getPluginManager().addPermission(it)
+        }
         getCommand("testcommandparser")?.let { pluginCommand ->
             pluginCommand.setExecutor(commandRunnerSystem)
             pluginCommand.tabCompleter = commandRunnerSystem
