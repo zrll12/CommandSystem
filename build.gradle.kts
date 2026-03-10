@@ -15,7 +15,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
-//    compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
+    api(kotlin("reflect"))
     compileOnly("org.spigotmc:spigot-api:1.20.2-R0.1-SNAPSHOT")
     compileOnly("com.mojang:brigadier:1.0.18")
 }

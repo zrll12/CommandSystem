@@ -12,6 +12,9 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder.argument
 import org.bukkit.command.CommandSender
 import java.lang.reflect.Method
 import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
+import kotlin.reflect.KParameter
+import kotlin.reflect.jvm.javaMethod
 
 class CommandSystem {
     private val roots = linkedMapOf<String, RootNode>()
@@ -308,8 +311,43 @@ class CommandSystem {
         }
 
         fun executes(handler: Any) {
-            val invokeMethod = resolveInvokeMethod(handler)
-            val registered = createHandler(handler, invokeMethod, pathArguments, "", true)
+            val (instance, method) = when (handler) {
+                is KFunction<*> -> {
+                    val instanceParam = handler.parameters.firstOrNull {
+                        it.kind == KParameter.Kind.INSTANCE || it.kind == KParameter.Kind.EXTENSION_RECEIVER
+                    }
+                    if (instanceParam != null) {
+                        // Unbound TestClass::method, needs to create instance and find java method
+                        val receiverClass = (instanceParam.type.classifier as KClass<*>).java
+                        val receiverInstance = try {
+                            receiverClass.getDeclaredConstructor().newInstance()
+                        } catch (e: Exception) {
+                            throw IllegalArgumentException(
+                                "Unbound function reference requires ${receiverClass.name} to have a no-arg constructor. " +
+                                "Use a bound reference (instance::method) instead.", e
+                            )
+                        }
+                        val javaMethod = requireNotNull(handler.javaMethod) {
+                            "Cannot get underlying Java method from KFunction '${handler.name}'"
+                        }
+                        Pair(receiverInstance as Any, javaMethod)
+                    } else {
+                        // Bound instance::method, non-bridge invoke
+                        val invokeMethod = handler::class.java.methods
+                            .filter { it.name == "invoke" && !it.isBridge && !it.isSynthetic }
+                            .maxByOrNull { it.parameterCount }
+                            ?: throw IllegalArgumentException(
+                                "Cannot resolve invoke method from bound function reference"
+                            )
+                        Pair(handler as Any, invokeMethod)
+                    }
+                }
+                else -> {
+                    val invokeMethod = resolveInvokeMethod(handler)
+                    Pair(handler, invokeMethod)
+                }
+            }
+            val registered = createHandler(instance, method, pathArguments, "", true)
             children.add(DslNode.ExecuteNode(registered))
             addEndpointDoc(rootName, pathTokens, "", "")
         }
