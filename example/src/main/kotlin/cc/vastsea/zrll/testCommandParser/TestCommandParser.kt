@@ -3,12 +3,28 @@ package cc.vastsea.zrll.testCommandParser
 import cc.vastsea.zrll.commandSystem.CommandRunnerSystem
 import cc.vastsea.zrll.commandSystem.CommandSystem
 import cc.vastsea.zrll.testCommandParser.commands.TestCommand
-import com.sun.beans.introspect.PropertyInfo
 import org.bukkit.Bukkit
 import org.bukkit.plugin.java.JavaPlugin
 
 class TestCommandParser : JavaPlugin() {
-    private val commandRunnerSystem = CommandRunnerSystem()
+    private val commandRunnerSystem = CommandRunnerSystem(::i18nGet)
+
+    private val i18nMessages = mapOf(
+        "command.syntax.invalid" to "Invalid command format: /{input}",
+        "command.syntax.available" to "Available usages:",
+        "command.syntax.check" to "Please check command arguments, or use /{label} help",
+        "command.execute.error" to "Error while executing command: {message}"
+    )
+
+    private fun i18nGet(key: String, placeholders: Map<String, String>?): String {
+        val template = i18nMessages[key] ?: key
+        if (placeholders.isNullOrEmpty()) {
+            return template
+        }
+        return placeholders.entries.fold(template) { result, (name, value) ->
+            result.replace("{$name}", value)
+        }
+    }
 
     override fun onEnable() {
         val commandSystem = CommandSystem()

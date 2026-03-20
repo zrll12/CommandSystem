@@ -8,7 +8,9 @@ import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 
-class CommandRunnerSystem : CommandExecutor, TabCompleter {
+class CommandRunnerSystem(
+    private val get: (key: String, placeholders: Map<String, String>?) -> String = ::defaultGet
+) : CommandExecutor, TabCompleter {
     private val dispatchers = linkedMapOf<String, MutableList<CommandDispatcher<CommandDispatchSource>>>()
 
     private val sourceMapper: (CommandSender, Command, String, Array<out String>) -> CommandDispatchSource =
@@ -45,15 +47,24 @@ class CommandRunnerSystem : CommandExecutor, TabCompleter {
         if (lastError != null) {
             if (lastError is CommandSyntaxException) {
                 val usageHints = collectUsageHints(candidates, source, label)
-                sender.sendMessage("命令格式不正确：/$input")
+                sender.sendMessage(
+                    get("command.syntax.invalid", mapOf("input" to input))
+                )
                 if (usageHints.isNotEmpty()) {
-                    sender.sendMessage("可用写法：")
+                    sender.sendMessage(get("command.syntax.available", null))
                     usageHints.forEach { hint -> sender.sendMessage(" - $hint") }
                 } else {
-                    sender.sendMessage("请检查命令参数，或使用 /$label help")
+                    sender.sendMessage(
+                        get("command.syntax.check", mapOf("label" to label))
+                    )
                 }
             } else {
-                sender.sendMessage("Error executing command: ${lastError.localizedMessage}")
+                sender.sendMessage(
+                    get(
+                        "command.execute.error",
+                        mapOf("message" to (lastError.localizedMessage ?: "unknown error"))
+                    )
+                )
                 lastError.printStackTrace()
             }
             return true
@@ -152,5 +163,24 @@ class CommandRunnerSystem : CommandExecutor, TabCompleter {
             hints.add("/$label help")
         }
         return hints.toList()
+    }
+
+    companion object {
+        private val defaultMessages = mapOf(
+            "command.syntax.invalid" to "Invalid command format: /{input}",
+            "command.syntax.available" to "Available usages:",
+            "command.syntax.check" to "Please check command arguments, or use /{label} help",
+            "command.execute.error" to "Error executing command: {message}"
+        )
+
+        private fun defaultGet(key: String, placeholders: Map<String, String>?): String {
+            val template = defaultMessages[key] ?: key
+            if (placeholders.isNullOrEmpty()) {
+                return template
+            }
+            return placeholders.entries.fold(template) { result, (name, value) ->
+                result.replace("{$name}", value)
+            }
+        }
     }
 }
