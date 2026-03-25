@@ -1,13 +1,9 @@
 package cc.vastsea.zrll.commandSystem
 
 import cc.vastsea.zrll.commandSystem.modals.ArgumentSpec
+import cc.vastsea.zrll.commandSystem.modals.CommandArgumentResolvers
 import cc.vastsea.zrll.commandSystem.modals.CommandDispatchSource
 import cc.vastsea.zrll.commandSystem.modals.ParameterBinding
-import com.mojang.brigadier.arguments.BoolArgumentType
-import com.mojang.brigadier.arguments.DoubleArgumentType
-import com.mojang.brigadier.arguments.IntegerArgumentType
-import com.mojang.brigadier.arguments.LongArgumentType
-import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import org.bukkit.entity.Player
 import java.lang.reflect.Method
@@ -54,14 +50,7 @@ internal class RealCommandHandler(
 
     private fun extractArgument(context: CommandContext<CommandDispatchSource>, spec: ArgumentSpec): Any? {
         return try {
-            when (spec.type) {
-                String::class.java -> StringArgumentType.getString(context, spec.name)
-                Int::class.javaObjectType, Int::class.javaPrimitiveType -> IntegerArgumentType.getInteger(context, spec.name)
-                Long::class.javaObjectType, Long::class.javaPrimitiveType -> LongArgumentType.getLong(context, spec.name)
-                Double::class.javaObjectType, Double::class.javaPrimitiveType -> DoubleArgumentType.getDouble(context, spec.name)
-                Boolean::class.javaObjectType, Boolean::class.javaPrimitiveType -> BoolArgumentType.getBool(context, spec.name)
-                else -> throw IllegalArgumentException("Unsupported argument type: ${spec.type.name}")
-            }
+            CommandArgumentResolvers.find(spec.type).parse(context, spec.name)
         } catch (_: IllegalArgumentException) {
             null
         }

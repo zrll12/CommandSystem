@@ -4,8 +4,19 @@ import cc.vastsea.zrll.commandSystem.annontation.CommandHandler
 import org.bukkit.command.CommandSender
 
 class TestCommand {
-    @CommandHandler(path = "get [optional:int] <required:string>", command = "testcommandparser", description = "Get something", permission = "testcommand.get", allowConsole = true)
+    enum class TcpType {
+        FAST,
+        SAFE,
+        DEBUG
+    }
+
+    @CommandHandler(path = "/testcommandparser get [optional] <required>", description = "Get something", permission = "testcommand.get", allowConsole = true)
     fun commandGet(sender: CommandSender, optional: Int?, required: String) {
         sender.sendMessage("You executed command get, optional=$optional, required=$required")
+    }
+
+    @CommandHandler(path = "/tcp set <type>", description = "Set tcp type", permission = "testcommand.set", allowConsole = true)
+    fun commandSet(sender: CommandSender, type: TcpType) {
+        sender.sendMessage("You set tcp type to ${type.name.lowercase()}")
     }
 }

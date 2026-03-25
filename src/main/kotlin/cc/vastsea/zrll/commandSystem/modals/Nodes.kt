@@ -38,7 +38,7 @@ internal sealed class DslNode {
 
 internal sealed class PathToken {
     data class Literal(val value: String) : PathToken()
-    data class Argument(val name: String, val type: Class<*>, val optional: Boolean) : PathToken()
+    data class Argument(val name: String, val optional: Boolean, val type: Class<*>? = null) : PathToken()
 }
 
 internal data class ArgumentSpec(
