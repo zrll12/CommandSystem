@@ -9,7 +9,7 @@ CommandSystem 是一个面向 Bukkit/Spigot/Paper 插件开发的 Kotlin 命令�
 
 同时内置：
 
-- 参数类型解析（`String` / `Int` / `Long` / `Double` / `Boolean` / `Player`）
+- 参数类型解析（`String` / `Int` / `Long` / `Double` / `Boolean` / `Player` / `Enums` / 自定义类型）
 - 注解路径支持 `/root sub [optional] <required>`，参数类型从函数签名自动推断
 - 权限自动收集（可直接注册到 Bukkit `Permission`）
 - `CommandRunnerSystem` 命令执行与补全
