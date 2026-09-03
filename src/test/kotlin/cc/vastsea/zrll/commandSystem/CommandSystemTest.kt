@@ -1,7 +1,10 @@
 package cc.vastsea.zrll.commandSystem
 
 import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.arguments.IntegerArgumentType
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder.literal
+import com.mojang.brigadier.builder.RequiredArgumentBuilder.argument
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -60,5 +63,33 @@ class CommandSystemTest {
             listOf("/tcp get"),
             BranchUsage.hints(dispatcher, parse, Unit, displayedRoot = "tcp"),
         )
+    }
+
+    @Test
+    fun `usage backtracks from a completed leaf and includes argument types`() {
+        val dispatcher = CommandDispatcher<Unit>()
+        dispatcher.register(
+            literal<Unit>("testcommandparser").then(
+                literal<Unit>("get")
+                    .then(
+                        argument<Unit, Int>("optional", IntegerArgumentType.integer())
+                            .then(argument<Unit, String>("required", StringArgumentType.word()).executes { 1 }),
+                    )
+                    .then(argument<Unit, String>("required", StringArgumentType.word()).executes { 1 }),
+            ),
+        )
+        val parse = dispatcher.parse("testcommandparser get ui 1", Unit)
+
+        val hints = BranchUsage.hints(
+            dispatcher,
+            parse,
+            Unit,
+            displayedRoot = "tcp",
+            argumentHints = mapOf("optional" to "integer", "required" to "text"),
+        )
+
+        kotlin.test.assertTrue(hints.any { it.startsWith("/tcp get ") })
+        kotlin.test.assertTrue(hints.any { "optional:integer" in it })
+        kotlin.test.assertTrue(hints.any { "required:text" in it })
     }
 }

@@ -34,19 +34,35 @@ internal object BranchUsage {
         parse: ParseResults<S>,
         source: S,
         displayedRoot: String? = null,
+        argumentHints: Map<String, String> = emptyMap(),
     ): List<String> {
-        val deepestNode = parse.context.nodes.lastOrNull()
-        val parent = deepestNode?.node ?: dispatcher.root
-        val parsedPrefix = SyntaxExcerpt.prefix(parse.reader.string, deepestNode?.range?.end ?: 0)
+        val parsedNodes = parse.context.nodes
+        val selected = parsedNodes.asReversed().firstNotNullOfOrNull { parsedNode ->
+            dispatcher.getSmartUsage(parsedNode.node, source).values
+                .filter(String::isNotBlank)
+                .takeIf(List<String>::isNotEmpty)
+                ?.let { parsedNode to it }
+        }
+        val usages = selected?.second ?: dispatcher.getSmartUsage(dispatcher.root, source).values
+            .filter(String::isNotBlank)
+        val parsedPrefix = SyntaxExcerpt.prefix(parse.reader.string, selected?.first?.range?.end ?: 0)
         val prefix = displayedRoot?.let { root ->
             listOf(root, parsedPrefix.substringAfter(' ', "")).filter(String::isNotBlank).joinToString(" ")
         } ?: parsedPrefix
-        return dispatcher.getSmartUsage(parent, source).values
-            .filter(String::isNotBlank)
-            .map { value ->
+        return usages.map { rawValue ->
+                val value = addArgumentHints(rawValue, argumentHints)
                 "/${listOf(prefix, value).filter(String::isNotBlank).joinToString(" ")}"
             }
     }
+
+    private fun addArgumentHints(usage: String, hints: Map<String, String>): String =
+        ARGUMENT.replace(usage) { match ->
+            val name = match.groupValues[1]
+            val hint = hints[name] ?: return@replace match.value
+            "<$name:$hint>"
+        }
+
+    private val ARGUMENT = Regex("<([^>:]+)>")
 }
 
 internal object FrameworkMessages {
@@ -62,6 +78,11 @@ internal object FrameworkMessages {
         "command.help.no-description" to "No description",
         "command.help.no-permission" to "no permission required",
         "command.help.no-params" to "",
+        "command.type.integer" to "integer",
+        "command.type.decimal" to "decimal",
+        "command.type.boolean" to "true|false",
+        "command.type.text" to "text",
+        "command.type.player" to "player",
     )
 
     fun default(key: String, placeholders: Map<String, String>?): String =

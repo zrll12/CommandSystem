@@ -64,7 +64,9 @@ class CommandSystem {
                                 val permission = endpoint.permission.ifBlank {
                                     runnerSystem.message("command.help.no-permission", null)
                                 }
-                                val params = endpoint.params.ifBlank {
+                                val params = endpoint.arguments.joinToString(" ") { argument ->
+                                    runnerSystem.argumentUsage(argument.name, argument.type, argument.optional)
+                                }.ifBlank {
                                     runnerSystem.message("command.help.no-params", null)
                                 }
                                 sender.sendMessage(
@@ -91,7 +93,11 @@ class CommandSystem {
                 }
             }
             dispatcher.register(rootLiteral)
-            runnerSystem.addDispatcher(root.name, dispatcher)
+            runnerSystem.addDispatcher(
+                root.name,
+                dispatcher,
+                collectArgumentHints(root.children, runnerSystem),
+            )
         }
     }
 
@@ -175,22 +181,33 @@ class CommandSystem {
             .joinToString(" ") { it.value }
             .trim()
         val pathPart = if (literalPath.isBlank()) "" else " $literalPath"
-        val paramsPart = pathTokens
-            .filterIsInstance<PathToken.Argument>()
-            .joinToString(" ") { argument ->
-                val typeName = argument.type?.simpleName?.lowercase() ?: "unknown"
-                if (argument.optional) "[${argument.name}:$typeName]" else "<${argument.name}:$typeName>"
-            }
-            .trim()
+        val arguments = pathTokens.filterIsInstance<PathToken.Argument>().map { argument ->
+            EndpointArgumentDoc(argument.name, requireNotNull(argument.type), argument.optional)
+        }
 
         rootNode.endpoints.add(
             EndpointDoc(
                 path = pathPart,
-                params = paramsPart,
+                arguments = arguments,
                 description = description,
                 permission = permission
             )
         )
+    }
+
+    private fun collectArgumentHints(
+        nodes: List<DslNode>,
+        runner: CommandRunnerSystem,
+    ): Map<String, String> {
+        val hints = linkedMapOf<String, String>()
+        fun visit(node: DslNode) {
+            if (node is DslNode.ArgumentNode) {
+                hints.putIfAbsent(node.name, runner.argumentTypeHint(node.type))
+            }
+            node.children.forEach(::visit)
+        }
+        nodes.forEach(::visit)
+        return hints
     }
 
     private fun addPath(root: String, pathTokens: List<PathToken>, handler: RealCommandHandler) {

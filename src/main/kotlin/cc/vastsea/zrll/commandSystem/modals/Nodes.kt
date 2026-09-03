@@ -10,9 +10,15 @@ internal data class RootNode(
 
 internal data class EndpointDoc(
     val path: String,
-    val params: String,
+    val arguments: List<EndpointArgumentDoc>,
     val description: String,
     val permission: String
+)
+
+internal data class EndpointArgumentDoc(
+    val name: String,
+    val type: Class<*>,
+    val optional: Boolean,
 )
 
 internal sealed class DslNode {

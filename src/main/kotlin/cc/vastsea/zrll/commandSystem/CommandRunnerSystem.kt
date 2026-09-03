@@ -8,20 +8,27 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
+import java.util.IdentityHashMap
 
 class CommandRunnerSystem(
     private val get: (key: String, placeholders: Map<String, String>?) -> String = FrameworkMessages::default
 ) : CommandExecutor, TabCompleter {
     private val dispatchers = linkedMapOf<String, MutableList<CommandDispatcher<CommandDispatchSource>>>()
+    private val argumentHints = IdentityHashMap<CommandDispatcher<CommandDispatchSource>, Map<String, String>>()
 
     private val sourceMapper: (CommandSender, Command, String, Array<out String>) -> CommandDispatchSource =
         { sender, command, label, args ->
             CommandDispatchSource(sender, command, label, args)
         }
 
-    fun addDispatcher(commandName: String, dispatcher: CommandDispatcher<CommandDispatchSource>) {
+    fun addDispatcher(
+        commandName: String,
+        dispatcher: CommandDispatcher<CommandDispatchSource>,
+        hints: Map<String, String> = emptyMap(),
+    ) {
         val key = commandName.lowercase()
         dispatchers.getOrPut(key) { mutableListOf() }.add(dispatcher)
+        argumentHints[dispatcher] = hints
     }
 
     fun execute(
@@ -172,7 +179,15 @@ class CommandRunnerSystem(
     ): List<String> {
         val hints = linkedSetOf<String>()
         parses.forEach { attempt ->
-            hints.addAll(BranchUsage.hints(attempt.attempt.dispatcher, attempt.parse, source, label))
+            hints.addAll(
+                BranchUsage.hints(
+                    attempt.attempt.dispatcher,
+                    attempt.parse,
+                    source,
+                    label,
+                    argumentHints[attempt.attempt.dispatcher].orEmpty(),
+                )
+            )
         }
         if (hints.isEmpty()) {
             hints.add("/$label help")
@@ -196,6 +211,24 @@ class CommandRunnerSystem(
 
     internal fun message(key: String, placeholders: Map<String, String>?): String =
         FrameworkMessages.resolve(get, key, placeholders)
+
+    internal fun argumentUsage(name: String, type: Class<*>, optional: Boolean): String {
+        val value = "$name:${argumentTypeHint(type)}"
+        return if (optional) "[$value]" else "<$value>"
+    }
+
+    internal fun argumentTypeHint(type: Class<*>): String {
+        if (type.isEnum) return type.enumConstants.joinToString("|") { (it as Enum<*>).name.lowercase() }
+        val key = when (type.name) {
+            "java.lang.Integer", "int", "java.lang.Long", "long" -> "command.type.integer"
+            "java.lang.Double", "double", "java.lang.Float", "float" -> "command.type.decimal"
+            "java.lang.Boolean", "boolean" -> "command.type.boolean"
+            "java.lang.String" -> "command.type.text"
+            "org.bukkit.entity.Player" -> "command.type.player"
+            else -> return type.simpleName
+        }
+        return message(key, null)
+    }
 
     private data class ParseAttempt(
         val dispatcher: CommandDispatcher<CommandDispatchSource>,
