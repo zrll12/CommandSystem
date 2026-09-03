@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "cc.vastsea.zrll"
-version = "0.3"
+version = "0.4"
 
 repositories {
     mavenCentral()
@@ -15,6 +15,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    testImplementation("com.mojang:brigadier:1.0.18")
     api(kotlin("reflect"))
     compileOnly("org.spigotmc:spigot-api:1.20.2-R0.1-SNAPSHOT")
     compileOnly("com.mojang:brigadier:1.0.18")

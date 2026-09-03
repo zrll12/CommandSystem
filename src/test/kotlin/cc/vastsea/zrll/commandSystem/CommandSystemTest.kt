@@ -1,12 +1,35 @@
 package cc.vastsea.zrll.commandSystem
 
+import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.builder.LiteralArgumentBuilder.literal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CommandSystemTest {
     @Test
-    fun greetReturnsExpectedMessage() {
-        val library = CommandSystem()
-        assertEquals("Hello, Kotlin!", library.greet("Kotlin"))
+    fun `syntax excerpt points at the failing input and clamps invalid cursors`() {
+        assertEquals("command scene", SyntaxExcerpt.prefix("command scene create", 13))
+        assertEquals("mmand scene create", SyntaxExcerpt.context("command scene create", 14))
+        assertEquals(" ".repeat(20) + "^", SyntaxExcerpt.pointer("command scene create", 100))
+        assertEquals("^", SyntaxExcerpt.pointer("command scene create", -1))
+    }
+
+    @Test
+    fun `usage hints stay within the deepest successfully parsed branch`() {
+        val dispatcher = CommandDispatcher<Unit>()
+        dispatcher.register(
+            literal<Unit>("iam").then(
+                literal<Unit>("scene")
+                    .then(literal<Unit>("create"))
+                    .then(literal<Unit>("list")),
+            ),
+        )
+
+        val parse = dispatcher.parse("iam scene unknown", Unit)
+
+        assertEquals(
+            listOf("/iam scene create", "/iam scene list"),
+            BranchUsage.hints(dispatcher, parse, Unit),
+        )
     }
 }

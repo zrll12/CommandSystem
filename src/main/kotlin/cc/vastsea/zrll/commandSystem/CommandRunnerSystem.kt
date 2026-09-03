@@ -2,6 +2,7 @@ package cc.vastsea.zrll.commandSystem
 
 import cc.vastsea.zrll.commandSystem.modals.CommandDispatchSource
 import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.ParseResults
 import com.mojang.brigadier.exceptions.CommandSyntaxException
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -46,13 +47,27 @@ class CommandRunnerSystem(
 
         if (lastError != null) {
             if (lastError is CommandSyntaxException) {
-                val usageHints = collectUsageHints(candidates, source, label)
+                val parses = candidates.map { dispatcher -> dispatcher to dispatcher.parse(input, source) }
+                val cursor = furthestCursor(lastError, parses)
+                val usageHints = collectUsageHints(parses, source, label)
                 sender.sendMessage(
                     get("command.syntax.invalid", mapOf("input" to input))
                 )
+                sender.sendMessage(
+                    get(
+                        "command.syntax.location",
+                        mapOf(
+                            "cursor" to cursor.toString(),
+                            "context" to SyntaxExcerpt.context(input, cursor),
+                            "pointer" to SyntaxExcerpt.pointer(input, cursor)
+                        )
+                    )
+                )
                 if (usageHints.isNotEmpty()) {
                     sender.sendMessage(get("command.syntax.available", null))
-                    usageHints.forEach { hint -> sender.sendMessage(" - $hint") }
+                    usageHints.forEach { hint ->
+                        sender.sendMessage(get("command.syntax.usage", mapOf("usage" to hint)))
+                    }
                 } else {
                     sender.sendMessage(
                         get("command.syntax.check", mapOf("label" to label))
@@ -148,16 +163,13 @@ class CommandRunnerSystem(
     }
 
     private fun collectUsageHints(
-        dispatchers: Set<CommandDispatcher<CommandDispatchSource>>,
+        parses: List<Pair<CommandDispatcher<CommandDispatchSource>, ParseResults<CommandDispatchSource>>>,
         source: CommandDispatchSource,
         label: String
     ): List<String> {
         val hints = linkedSetOf<String>()
-        dispatchers.forEach { dispatcher ->
-            val usage = dispatcher.getSmartUsage(dispatcher.root, source)
-            usage.values
-                .filter { it.isNotBlank() }
-                .forEach { value -> hints.add("/$value") }
+        parses.forEach { (dispatcher, parse) ->
+            hints.addAll(BranchUsage.hints(dispatcher, parse, source))
         }
         if (hints.isEmpty()) {
             hints.add("/$label help")
@@ -165,10 +177,20 @@ class CommandRunnerSystem(
         return hints.toList()
     }
 
+    private fun furthestCursor(
+        failure: CommandSyntaxException,
+        parses: List<Pair<CommandDispatcher<CommandDispatchSource>, ParseResults<CommandDispatchSource>>>
+    ): Int = maxOf(
+        failure.cursor.coerceAtLeast(0),
+        parses.maxOfOrNull { (_, parse) -> parse.reader.cursor } ?: 0
+    )
+
     companion object {
         private val defaultMessages = mapOf(
             "command.syntax.invalid" to "Invalid command format: /{input}",
+            "command.syntax.location" to "Problem near `{context}` (character {cursor})\n/{pointer}",
             "command.syntax.available" to "Available usages:",
+            "command.syntax.usage" to " - {usage}",
             "command.syntax.check" to "Please check command arguments, or use /{label} help",
             "command.execute.error" to "Error executing command: {message}"
         )
