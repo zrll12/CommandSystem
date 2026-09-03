@@ -7,6 +7,10 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder.literal
 import com.mojang.brigadier.builder.RequiredArgumentBuilder.argument
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import java.lang.reflect.Proxy
+import org.bukkit.command.Command
+import org.bukkit.command.CommandSender
 
 class CommandSystemTest {
     @Test
@@ -85,11 +89,63 @@ class CommandSystemTest {
             parse,
             Unit,
             displayedRoot = "tcp",
-            argumentHints = mapOf("optional" to "integer", "required" to "text"),
+            argumentHints = mapOf(
+                "optional" to ArgumentUsageHint("integer", optional = true),
+                "required" to ArgumentUsageHint("text", optional = false),
+            ),
         )
 
-        kotlin.test.assertTrue(hints.any { it.startsWith("/tcp get ") })
-        kotlin.test.assertTrue(hints.any { "optional:integer" in it })
-        kotlin.test.assertTrue(hints.any { "required:text" in it })
+        assertTrue(hints.any { it.startsWith("/tcp get ") })
+        assertTrue(hints.any { "[optional:integer]" in it })
+        assertTrue(hints.any { "required:text" in it })
+        assertTrue(hints.none { "<optional:integer>" in it })
     }
+
+    @Test
+    fun `alias root help combines endpoints from every matching command tree`() {
+        val runner = CommandRunnerSystem()
+        CommandSystem().apply {
+            command("testcommandparser") { literal("get") { executes(HelpEndpoint::execute) } }
+            command("tcp") { literal("set") { executes(HelpEndpoint::execute) } }
+            finalize(runner)
+        }
+        val messages = mutableListOf<String>()
+        val sender = Proxy.newProxyInstance(
+            CommandSender::class.java.classLoader,
+            arrayOf(CommandSender::class.java),
+        ) { _, method, args ->
+            if (method.name == "sendMessage" && args?.firstOrNull() is String) {
+                messages += args[0] as String
+            }
+            when (method.returnType) {
+                Boolean::class.javaPrimitiveType -> false
+                Int::class.javaPrimitiveType -> 0
+                else -> null
+            }
+        } as CommandSender
+        val command = object : Command("testcommandparser") {
+            override fun execute(sender: CommandSender, commandLabel: String, args: Array<out String>) = false
+        }
+
+        runner.execute(sender, command, "tcp", emptyArray())
+
+        assertTrue(messages.any { "/tcp get" in it })
+        assertTrue(messages.any { "/tcp set" in it })
+        assertEquals(1, messages.count { "Command help" in it })
+    }
+
+    @Test
+    fun `help argument syntax preserves optional brackets and colors enum separators`() {
+        val runner = CommandRunnerSystem()
+
+        assertEquals("[optional:integer]", runner.argumentUsage("optional", Int::class.java, optional = true))
+        assertEquals("<required:text>", runner.argumentUsage("required", String::class.java, optional = false))
+        assertEquals("§ffast§6|§fsafe§6|§fdebug", runner.argumentTypeHint(Mode::class.java))
+    }
+
+    private enum class Mode { FAST, SAFE, DEBUG }
+}
+
+class HelpEndpoint {
+    fun execute(sender: CommandSender) = Unit
 }

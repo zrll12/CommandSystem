@@ -14,21 +14,29 @@ class CommandRunnerSystem(
     private val get: (key: String, placeholders: Map<String, String>?) -> String = FrameworkMessages::default
 ) : CommandExecutor, TabCompleter {
     private val dispatchers = linkedMapOf<String, MutableList<CommandDispatcher<CommandDispatchSource>>>()
-    private val argumentHints = IdentityHashMap<CommandDispatcher<CommandDispatchSource>, Map<String, String>>()
+    private val argumentHints =
+        IdentityHashMap<CommandDispatcher<CommandDispatchSource>, Map<String, ArgumentUsageHint>>()
+    private val generatedHelp = IdentityHashMap<CommandDispatcher<CommandDispatchSource>, GeneratedHelp>()
 
     private val sourceMapper: (CommandSender, Command, String, Array<out String>) -> CommandDispatchSource =
         { sender, command, label, args ->
             CommandDispatchSource(sender, command, label, args)
         }
 
-    fun addDispatcher(
+    fun addDispatcher(commandName: String, dispatcher: CommandDispatcher<CommandDispatchSource>) {
+        addDispatcher(commandName, dispatcher, emptyMap())
+    }
+
+    internal fun addDispatcher(
         commandName: String,
         dispatcher: CommandDispatcher<CommandDispatchSource>,
-        hints: Map<String, String> = emptyMap(),
+        hints: Map<String, ArgumentUsageHint>,
+        help: GeneratedHelp? = null,
     ) {
         val key = commandName.lowercase()
         dispatchers.getOrPut(key) { mutableListOf() }.add(dispatcher)
         argumentHints[dispatcher] = hints
+        if (help != null) generatedHelp[dispatcher] = help
     }
 
     fun execute(
@@ -40,6 +48,15 @@ class CommandRunnerSystem(
         val displayedInput = buildInput(label, args, forceTrailingSpace = false)
         val source = sourceMapper(sender, command, label, args)
         val candidates = resolveCandidates(command, label)
+        val helpRenderers = candidates.mapNotNull(generatedHelp::get)
+        val wantsCombinedHelp = helpRenderers.size > 1 && (
+            (args.isEmpty() && helpRenderers.all(GeneratedHelp::handlesRoot)) ||
+                (args.size == 1 && args[0].equals("help", ignoreCase = true))
+            )
+        if (wantsCombinedHelp) {
+            helpRenderers.forEachIndexed { index, help -> help.render(source, label, index == 0) }
+            return true
+        }
 
         var lastError: Exception? = null
         val attempts = mutableListOf<ParseAttempt>()
@@ -218,7 +235,11 @@ class CommandRunnerSystem(
     }
 
     internal fun argumentTypeHint(type: Class<*>): String {
-        if (type.isEnum) return type.enumConstants.joinToString("|") { (it as Enum<*>).name.lowercase() }
+        if (type.isEnum) {
+            return type.enumConstants.joinToString("§6|§f", prefix = "§f") {
+                (it as Enum<*>).name.lowercase()
+            }
+        }
         val key = when (type.name) {
             "java.lang.Integer", "int", "java.lang.Long", "long" -> "command.type.integer"
             "java.lang.Double", "double", "java.lang.Float", "float" -> "command.type.decimal"
@@ -242,3 +263,8 @@ class CommandRunnerSystem(
         val parse: ParseResults<CommandDispatchSource>,
     )
 }
+
+internal data class GeneratedHelp(
+    val handlesRoot: Boolean,
+    val render: (CommandDispatchSource, displayedRoot: String, includeHeader: Boolean) -> Unit,
+)

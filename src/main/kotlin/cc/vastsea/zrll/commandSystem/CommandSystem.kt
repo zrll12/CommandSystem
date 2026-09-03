@@ -47,47 +47,19 @@ class CommandSystem {
             val dispatcher = CommandDispatcher<CommandDispatchSource>()
             val rootLiteral = literal<CommandDispatchSource>(root.name)
             root.children.forEach { child -> buildNode(rootLiteral, child) }
-            if (root.children.none { it is DslNode.LiteralNode && it.name.equals("help", ignoreCase = true) }) {
+            val hasExplicitHelp = root.children.any {
+                it is DslNode.LiteralNode && it.name.equals("help", ignoreCase = true)
+            }
+            val handlesRoot = root.children.none { it is DslNode.ExecuteNode }
+            if (!hasExplicitHelp) {
                 rootLiteral.then(
                     literal<CommandDispatchSource>("help").executes { context ->
-                        val sender = context.source.sender
-                        sender.sendMessage(
-                            runnerSystem.message("command.help.header", mapOf("root" to root.name))
-                        )
-                        if (root.endpoints.isEmpty()) {
-                            sender.sendMessage(runnerSystem.message("command.help.empty", null))
-                        } else {
-                            root.endpoints.forEach { endpoint ->
-                                val description = endpoint.description.ifBlank {
-                                    runnerSystem.message("command.help.no-description", null)
-                                }
-                                val permission = endpoint.permission.ifBlank {
-                                    runnerSystem.message("command.help.no-permission", null)
-                                }
-                                val params = endpoint.arguments.joinToString(" ") { argument ->
-                                    runnerSystem.argumentUsage(argument.name, argument.type, argument.optional)
-                                }.ifBlank {
-                                    runnerSystem.message("command.help.no-params", null)
-                                }
-                                sender.sendMessage(
-                                    runnerSystem.message(
-                                        "command.help.endpoint",
-                                        mapOf(
-                                            "root" to root.name,
-                                            "path" to endpoint.path,
-                                            "params" to params,
-                                            "description" to description,
-                                            "permission" to permission,
-                                        ),
-                                    )
-                                )
-                            }
-                        }
+                        sendGeneratedHelp(root, runnerSystem, context.source, context.source.label, true)
                         Command.SINGLE_SUCCESS
                     }
                 )
             }
-            if (root.children.none { it is DslNode.ExecuteNode }) {
+            if (handlesRoot) {
                 rootLiteral.executes { context ->
                     dispatcher.execute("${root.name} help", context.source)
                 }
@@ -97,6 +69,51 @@ class CommandSystem {
                 root.name,
                 dispatcher,
                 collectArgumentHints(root.children, runnerSystem),
+                if (hasExplicitHelp) null else GeneratedHelp(handlesRoot) { source, displayedRoot, includeHeader ->
+                    sendGeneratedHelp(root, runnerSystem, source, displayedRoot, includeHeader)
+                },
+            )
+        }
+    }
+
+    private fun sendGeneratedHelp(
+        root: RootNode,
+        runner: CommandRunnerSystem,
+        source: CommandDispatchSource,
+        displayedRoot: String,
+        includeHeader: Boolean,
+    ) {
+        val sender = source.sender
+        if (includeHeader) {
+            sender.sendMessage(runner.message("command.help.header", mapOf("root" to displayedRoot)))
+        }
+        if (root.endpoints.isEmpty()) {
+            sender.sendMessage(runner.message("command.help.empty", null))
+            return
+        }
+        root.endpoints.forEach { endpoint ->
+            val description = endpoint.description.ifBlank {
+                runner.message("command.help.no-description", null)
+            }
+            val permission = endpoint.permission.ifBlank {
+                runner.message("command.help.no-permission", null)
+            }
+            val params = endpoint.arguments.joinToString(" ") { argument ->
+                runner.argumentUsage(argument.name, argument.type, argument.optional)
+            }.ifBlank {
+                runner.message("command.help.no-params", null)
+            }
+            sender.sendMessage(
+                runner.message(
+                    "command.help.endpoint",
+                    mapOf(
+                        "root" to displayedRoot,
+                        "path" to endpoint.path,
+                        "params" to params,
+                        "description" to description,
+                        "permission" to permission,
+                    ),
+                )
             )
         }
     }
@@ -198,11 +215,14 @@ class CommandSystem {
     private fun collectArgumentHints(
         nodes: List<DslNode>,
         runner: CommandRunnerSystem,
-    ): Map<String, String> {
-        val hints = linkedMapOf<String, String>()
+    ): Map<String, ArgumentUsageHint> {
+        val hints = linkedMapOf<String, ArgumentUsageHint>()
         fun visit(node: DslNode) {
             if (node is DslNode.ArgumentNode) {
-                hints.putIfAbsent(node.name, runner.argumentTypeHint(node.type))
+                hints.putIfAbsent(
+                    node.name,
+                    ArgumentUsageHint(runner.argumentTypeHint(node.type), node.optional),
+                )
             }
             node.children.forEach(::visit)
         }

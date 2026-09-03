@@ -34,7 +34,7 @@ internal object BranchUsage {
         parse: ParseResults<S>,
         source: S,
         displayedRoot: String? = null,
-        argumentHints: Map<String, String> = emptyMap(),
+        argumentHints: Map<String, ArgumentUsageHint> = emptyMap(),
     ): List<String> {
         val parsedNodes = parse.context.nodes
         val selected = parsedNodes.asReversed().firstNotNullOfOrNull { parsedNode ->
@@ -55,15 +55,24 @@ internal object BranchUsage {
             }
     }
 
-    private fun addArgumentHints(usage: String, hints: Map<String, String>): String =
-        ARGUMENT.replace(usage) { match ->
+    private fun addArgumentHints(usage: String, hints: Map<String, ArgumentUsageHint>): String {
+        val optionalFormatted = OPTIONAL_ARGUMENT.replace(usage) { match ->
             val name = match.groupValues[1]
             val hint = hints[name] ?: return@replace match.value
-            "<$name:$hint>"
+            "[$name:${hint.type}]"
         }
+        return ARGUMENT.replace(optionalFormatted) { match ->
+            val name = match.groupValues[1]
+            val hint = hints[name] ?: return@replace match.value
+            if (hint.optional) "[$name:${hint.type}]" else "<$name:${hint.type}>"
+        }
+    }
 
+    private val OPTIONAL_ARGUMENT = Regex("\\[<([^>:]+)>]")
     private val ARGUMENT = Regex("<([^>:]+)>")
 }
+
+internal data class ArgumentUsageHint(val type: String, val optional: Boolean)
 
 internal object FrameworkMessages {
     private val defaults = mapOf(
