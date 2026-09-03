@@ -51,20 +51,44 @@ class CommandSystem {
                 rootLiteral.then(
                     literal<CommandDispatchSource>("help").executes { context ->
                         val sender = context.source.sender
-                        sender.sendMessage("§e/${root.name} 命令帮助")
+                        sender.sendMessage(
+                            runnerSystem.message("command.help.header", mapOf("root" to root.name))
+                        )
                         if (root.endpoints.isEmpty()) {
-                            sender.sendMessage("§7暂无已注册 endpoint")
+                            sender.sendMessage(runnerSystem.message("command.help.empty", null))
                         } else {
                             root.endpoints.forEach { endpoint ->
-                                sender.sendMessage("§a路径: §f/${root.name}${endpoint.path}")
-                                sender.sendMessage("§7参数: ${endpoint.params}")
-                                sender.sendMessage("§7描述: ${endpoint.description.ifBlank { "(无)" }}")
-                                sender.sendMessage("§7权限: ${endpoint.permission.ifBlank { "(无)" }}")
+                                val description = endpoint.description.ifBlank {
+                                    runnerSystem.message("command.help.no-description", null)
+                                }
+                                val permission = endpoint.permission.ifBlank {
+                                    runnerSystem.message("command.help.no-permission", null)
+                                }
+                                val params = endpoint.params.ifBlank {
+                                    runnerSystem.message("command.help.no-params", null)
+                                }
+                                sender.sendMessage(
+                                    runnerSystem.message(
+                                        "command.help.endpoint",
+                                        mapOf(
+                                            "root" to root.name,
+                                            "path" to endpoint.path,
+                                            "params" to params,
+                                            "description" to description,
+                                            "permission" to permission,
+                                        ),
+                                    )
+                                )
                             }
                         }
                         Command.SINGLE_SUCCESS
                     }
                 )
+            }
+            if (root.children.none { it is DslNode.ExecuteNode }) {
+                rootLiteral.executes { context ->
+                    dispatcher.execute("${root.name} help", context.source)
+                }
             }
             dispatcher.register(rootLiteral)
             runnerSystem.addDispatcher(root.name, dispatcher)
@@ -162,7 +186,7 @@ class CommandSystem {
         rootNode.endpoints.add(
             EndpointDoc(
                 path = pathPart,
-                params = paramsPart.ifBlank { "(无)" },
+                params = paramsPart,
                 description = description,
                 permission = permission
             )

@@ -11,7 +11,9 @@ class TestCommandParser : JavaPlugin() {
 
     private val i18nMessages = mapOf(
         "command.syntax.invalid" to "Invalid command format: /{input}",
+        "command.syntax.location" to "Problem near `{context}` (character {cursor})\n/{pointer}",
         "command.syntax.available" to "Available usages:",
+        "command.syntax.usage" to " - {usage}",
         "command.syntax.check" to "Please check command arguments, or use /{label} help",
         "command.execute.error" to "Error while executing command: {message}"
     )

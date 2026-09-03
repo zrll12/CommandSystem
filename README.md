@@ -14,6 +14,7 @@ CommandSystem 是一个面向 Bukkit/Spigot/Paper 插件开发的 Kotlin 命令�
 - 权限自动收集（可直接注册到 Bukkit `Permission`）
 - `CommandRunnerSystem` 命令执行与补全
 - 语法错误定位到具体字符，并只提示当前命令分支的可用用法
+- 根命令没有显式执行器时，直接执行根命令会自动显示帮助
 - 可注入 i18n 文案函数
 - 支持注册自定义 `CommandArgumentResolver`（让用户自定义 class 参与参数解析与补全）
 
@@ -140,6 +141,7 @@ get(key: String, placeholders: Map<String, String>? = null): String
 ```
 
 如果不注入，框架会使用内置英文默认文案。
+自定义文案函数缺少某个框架 key 并原样返回该 key 时，框架会回退到对应的内置英文文案，避免把 key 直接发送给玩家。
 
 语法错误会使用以下 key：
 
@@ -149,6 +151,12 @@ get(key: String, placeholders: Map<String, String>? = null): String
 - `command.syntax.usage`：参数 `usage`
 - `command.syntax.check`：参数 `label`
 - `command.execute.error`：参数 `message`
+- `command.help.header`：参数 `root`
+- `command.help.empty`
+- `command.help.endpoint`：参数 `root`、`path`、`params`、`description`、`permission`
+- `command.help.no-description`
+- `command.help.no-permission`
+- `command.help.no-params`
 
 ## 项目中的可运行示例
 

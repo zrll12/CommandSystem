@@ -32,4 +32,26 @@ class CommandSystemTest {
             BranchUsage.hints(dispatcher, parse, Unit),
         )
     }
+
+    @Test
+    fun `missing custom translations fall back instead of exposing message keys`() {
+        val custom = { key: String, _: Map<String, String>? -> key }
+
+        assertEquals(
+            " - /iam scene list",
+            FrameworkMessages.resolve(custom, "command.syntax.usage", mapOf("usage" to "/iam scene list")),
+        )
+    }
+
+    @Test
+    fun `usage can display the alias the sender actually used`() {
+        val dispatcher = CommandDispatcher<Unit>()
+        dispatcher.register(literal<Unit>("testcommandparser").then(literal<Unit>("get")))
+        val parse = dispatcher.parse("testcommandparser unknown", Unit)
+
+        assertEquals(
+            listOf("/tcp get"),
+            BranchUsage.hints(dispatcher, parse, Unit, displayedRoot = "tcp"),
+        )
+    }
 }
