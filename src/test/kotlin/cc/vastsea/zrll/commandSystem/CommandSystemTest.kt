@@ -7,11 +7,18 @@ import kotlin.test.assertEquals
 
 class CommandSystemTest {
     @Test
-    fun `syntax excerpt points at the failing input and clamps invalid cursors`() {
+    fun `syntax excerpt highlights invalid tokens without depending on translated prefixes`() {
         assertEquals("command scene", SyntaxExcerpt.prefix("command scene create", 13))
-        assertEquals("mmand scene create", SyntaxExcerpt.context("command scene create", 14))
-        assertEquals(" ".repeat(20) + "^", SyntaxExcerpt.pointer("command scene create", 100))
-        assertEquals("^", SyntaxExcerpt.pointer("command scene create", -1))
+        assertEquals(
+            "§fcommand scene §ccreate§f",
+            SyntaxExcerpt.highlightError("command scene create", 14),
+        )
+        assertEquals(
+            "§fcommand scene §c<?>",
+            SyntaxExcerpt.highlightError("command scene", 100),
+        )
+        assertEquals("§ccommand§f scene", SyntaxExcerpt.highlightError("command scene", -1))
+        assertEquals("§c?bad§f value", SyntaxExcerpt.highlightError("§bad value", 0))
     }
 
     @Test

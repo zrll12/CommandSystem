@@ -57,16 +57,9 @@ class CommandRunnerSystem(
                 val cursor = furthestCursor(parses, label, displayedInput.length)
                 val usageHints = collectUsageHints(parses, source, label)
                 sender.sendMessage(
-                    message("command.syntax.invalid", mapOf("input" to displayedInput))
-                )
-                sender.sendMessage(
                     message(
-                        "command.syntax.location",
-                        mapOf(
-                            "cursor" to cursor.toString(),
-                            "context" to SyntaxExcerpt.context(displayedInput, cursor),
-                            "pointer" to SyntaxExcerpt.pointer(displayedInput, cursor)
-                        )
+                        "command.syntax.invalid",
+                        mapOf("input" to SyntaxExcerpt.highlightError(displayedInput, cursor)),
                     )
                 )
                 if (usageHints.isNotEmpty()) {

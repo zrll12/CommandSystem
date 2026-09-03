@@ -7,15 +7,25 @@ internal object SyntaxExcerpt {
     fun prefix(input: String, end: Int): String =
         input.substring(0, end.coerceIn(0, input.length)).trim()
 
-    fun context(input: String, cursor: Int): String {
-        val safeCursor = cursor.coerceIn(0, input.length)
-        val start = (safeCursor - 12).coerceAtLeast(0)
-        val end = (safeCursor + 12).coerceAtMost(input.length)
-        return input.substring(start, end).ifBlank { input }
+    fun highlightError(input: String, cursor: Int): String {
+        val safeInput = input.replace('§', '?')
+        var start = cursor.coerceIn(0, safeInput.length)
+        while (start < safeInput.length && safeInput[start].isWhitespace()) start++
+        if (start == safeInput.length) return "§f$safeInput §c<?>"
+        while (start > 0 && !safeInput[start - 1].isWhitespace()) start--
+        var end = start
+        while (end < safeInput.length && !safeInput[end].isWhitespace()) end++
+        return buildString {
+            if (start > 0) {
+                append("§f")
+                append(safeInput, 0, start)
+            }
+            append("§c")
+            append(safeInput, start, end)
+            append("§f")
+            append(safeInput, end, safeInput.length)
+        }
     }
-
-    fun pointer(input: String, cursor: Int): String =
-        " ".repeat(cursor.coerceIn(0, input.length)) + "^"
 }
 
 internal object BranchUsage {
@@ -41,8 +51,7 @@ internal object BranchUsage {
 
 internal object FrameworkMessages {
     private val defaults = mapOf(
-        "command.syntax.invalid" to "Invalid command format: /{input}",
-        "command.syntax.location" to "Problem near `{context}` (character {cursor})\n/{pointer}",
+        "command.syntax.invalid" to "§7Invalid command format: /{input}",
         "command.syntax.available" to "Available usages:",
         "command.syntax.usage" to " - {usage}",
         "command.syntax.check" to "Please check command arguments, or use /{label} help",

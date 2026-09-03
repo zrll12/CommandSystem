@@ -146,7 +146,6 @@ get(key: String, placeholders: Map<String, String>? = null): String
 语法错误会使用以下 key：
 
 - `command.syntax.invalid`：参数 `input`
-- `command.syntax.location`：参数 `cursor`、`context`、`pointer`
 - `command.syntax.available`
 - `command.syntax.usage`：参数 `usage`
 - `command.syntax.check`：参数 `label`

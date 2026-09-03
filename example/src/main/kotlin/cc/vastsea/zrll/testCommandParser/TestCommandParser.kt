@@ -10,8 +10,7 @@ class TestCommandParser : JavaPlugin() {
     private val commandRunnerSystem = CommandRunnerSystem(::i18nGet)
 
     private val i18nMessages = mapOf(
-        "command.syntax.invalid" to "Invalid command format: /{input}",
-        "command.syntax.location" to "Problem near `{context}` (character {cursor})\n/{pointer}",
+        "command.syntax.invalid" to "§7Invalid command format: /{input}",
         "command.syntax.available" to "Available usages:",
         "command.syntax.usage" to " - {usage}",
         "command.syntax.check" to "Please check command arguments, or use /{label} help",
