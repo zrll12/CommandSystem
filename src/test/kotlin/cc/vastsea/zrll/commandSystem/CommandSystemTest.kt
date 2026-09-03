@@ -11,6 +11,7 @@ import kotlin.test.assertTrue
 import java.lang.reflect.Proxy
 import org.bukkit.command.Command
 import org.bukkit.command.CommandSender
+import cc.vastsea.zrll.commandSystem.annontation.CommandHandler
 
 class CommandSystemTest {
     @Test
@@ -143,9 +144,71 @@ class CommandSystemTest {
         assertEquals("§ffast§6|§fsafe§6|§fdebug", runner.argumentTypeHint(Mode::class.java))
     }
 
+    @Test
+    fun `invalid deep branch excludes less relevant roots from available usages`() {
+        val runner = CommandRunnerSystem()
+        CommandSystem().apply {
+            register(ParserEndpoint())
+            finalize(runner)
+        }
+        val messages = mutableListOf<String>()
+        val sender = recordingSender(messages)
+
+        runner.execute(sender, testCommand(), "tcp", arrayOf("get", "ui", "1"))
+
+        val usages = messages.filter { "/tcp " in it && "Invalid command" !in it }
+        assertTrue(usages.isNotEmpty())
+        assertTrue(usages.all { "/tcp get " in it })
+        assertTrue(usages.none { "[set" in it || "/tcp set" in it })
+        assertTrue(usages.size <= 4)
+    }
+
+    @Test
+    fun `executable parent does not make a literal child look optional`() {
+        val dispatcher = CommandDispatcher<Unit>()
+        dispatcher.register(
+            literal<Unit>("tcp").executes { 1 }.then(
+                literal<Unit>("set").then(
+                    argument<Unit, String>("type", StringArgumentType.word()).executes { 1 },
+                ),
+            ),
+        )
+
+        val hints = BranchUsage.hints(dispatcher, dispatcher.parse("tcp unknown", Unit), Unit)
+
+        assertEquals(listOf("/tcp set <type>"), hints)
+        assertTrue(hints.none { "[set" in it })
+    }
+
+    private fun recordingSender(messages: MutableList<String>): CommandSender = Proxy.newProxyInstance(
+        CommandSender::class.java.classLoader,
+        arrayOf(CommandSender::class.java),
+    ) { _, method, args ->
+        if (method.name == "sendMessage" && args?.firstOrNull() is String) messages += args[0] as String
+        when (method.returnType) {
+            Boolean::class.javaPrimitiveType -> false
+            Int::class.javaPrimitiveType -> 0
+            else -> null
+        }
+    } as CommandSender
+
+    private fun testCommand() = object : Command("testcommandparser") {
+        override fun execute(sender: CommandSender, commandLabel: String, args: Array<out String>) = false
+    }
+
     private enum class Mode { FAST, SAFE, DEBUG }
 }
 
 class HelpEndpoint {
     fun execute(sender: CommandSender) = Unit
 }
+
+class ParserEndpoint {
+    @CommandHandler(path = "/testcommandparser get [optional] <required>")
+    fun get(sender: CommandSender, optional: Int?, required: String) = Unit
+
+    @CommandHandler(path = "/tcp set <type>")
+    fun set(sender: CommandSender, type: ParserMode) = Unit
+}
+
+enum class ParserMode { FAST, SAFE, DEBUG }

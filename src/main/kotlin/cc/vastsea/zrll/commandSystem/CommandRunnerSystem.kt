@@ -194,8 +194,11 @@ class CommandRunnerSystem(
         source: CommandDispatchSource,
         label: String
     ): List<String> {
+        val deepestMatch = parses.maxOfOrNull { it.parse.context.nodes.size } ?: 0
         val hints = linkedSetOf<String>()
-        parses.forEach { attempt ->
+        parses.asSequence()
+            .filter { it.parse.context.nodes.size == deepestMatch }
+            .forEach { attempt ->
             hints.addAll(
                 BranchUsage.hints(
                     attempt.attempt.dispatcher,
@@ -209,7 +212,7 @@ class CommandRunnerSystem(
         if (hints.isEmpty()) {
             hints.add("/$label help")
         }
-        return hints.toList()
+        return hints.take(MAX_USAGE_HINTS)
     }
 
     private fun furthestCursor(parses: List<ParsedAttempt>, label: String, maximum: Int): Int =
@@ -262,6 +265,10 @@ class CommandRunnerSystem(
         val attempt: ParseAttempt,
         val parse: ParseResults<CommandDispatchSource>,
     )
+
+    private companion object {
+        const val MAX_USAGE_HINTS = 4
+    }
 }
 
 internal data class GeneratedHelp(

@@ -50,10 +50,13 @@ internal object BranchUsage {
             listOf(root, parsedPrefix.substringAfter(' ', "")).filter(String::isNotBlank).joinToString(" ")
         } ?: parsedPrefix
         return usages.map { rawValue ->
-                val value = addArgumentHints(rawValue, argumentHints)
+                val value = removeMisleadingLiteralBrackets(addArgumentHints(rawValue, argumentHints))
                 "/${listOf(prefix, value).filter(String::isNotBlank).joinToString(" ")}"
             }
     }
+
+    private fun removeMisleadingLiteralBrackets(usage: String): String =
+        LITERAL_BRANCH.replace(usage) { it.groupValues[1] }
 
     private fun addArgumentHints(usage: String, hints: Map<String, ArgumentUsageHint>): String {
         val optionalFormatted = OPTIONAL_ARGUMENT.replace(usage) { match ->
@@ -70,6 +73,7 @@ internal object BranchUsage {
 
     private val OPTIONAL_ARGUMENT = Regex("\\[<([^>:]+)>]")
     private val ARGUMENT = Regex("<([^>:]+)>")
+    private val LITERAL_BRANCH = Regex("\\[([a-zA-Z0-9_-]+)]")
 }
 
 internal data class ArgumentUsageHint(val type: String, val optional: Boolean)
